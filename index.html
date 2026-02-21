@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Loosiratas - Chart Mode</title>
+<title>PumpPick</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
 
@@ -101,14 +101,23 @@
     align-items: center;
     gap: 0.4rem;
     padding: 0.25rem 0.8rem;
-    background: rgba(0,255,170,0.06);
-    border: 1px solid rgba(0,255,170,0.15);
+    background: rgba(80,100,120,0.08);
+    border: 1px solid rgba(80,100,120,0.2);
     border-radius: 20px;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .live-badge.active {
+    background: rgba(0,255,170,0.06);
+    border-color: rgba(0,255,170,0.15);
   }
   .live-badge .dot {
     width: 6px; height: 6px;
-    background: #00ffaa;
+    background: #506070;
     border-radius: 50%;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .live-badge.active .dot {
+    background: #00ffaa;
     box-shadow: 0 0 6px #00ffaa;
     animation: pulse 1.5s ease-in-out infinite;
   }
@@ -120,9 +129,11 @@
     font-family: 'Orbitron', monospace;
     font-size: 0.5rem;
     letter-spacing: 2px;
-    color: #00ffaa88;
+    color: #50607088;
     text-transform: uppercase;
+    transition: color 0.3s;
   }
+  .live-badge.active span { color: #00ffaa88; }
 
   /* Input area */
   .input-row {
@@ -268,7 +279,7 @@
 
   #chart {
     width: 100%;
-    height: 420px;
+    height: 500px;
     display: block;
     border-radius: 8px;
   }
@@ -335,29 +346,6 @@
     margin-top: 0.5rem;
   }
 
-  /* Chart tooltip */
-  .chart-tooltip {
-    position: absolute;
-    pointer-events: none;
-    background: rgba(5,10,20,0.95);
-    border: 1px solid rgba(0,255,170,0.25);
-    border-radius: 8px;
-    padding: 0.4rem 0.7rem;
-    font-family: 'Orbitron', monospace;
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: #00ffaa;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.15s;
-    z-index: 10;
-    box-shadow: 0 0 15px rgba(0,255,170,0.1);
-  }
-  .chart-tooltip.visible { opacity: 1; }
-  .chart-tooltip .tt-name { color: #e0f0ff; font-size: 0.8rem; }
-  .chart-tooltip .tt-price { color: #607080; font-size: 0.55rem; margin-top: 2px; letter-spacing: 0.5px; }
-
   /* Shuffle button */
   .shuffle-btn {
     font-family: 'Orbitron', monospace;
@@ -397,8 +385,8 @@
 <div class="page">
   <div class="header">
     <div class="header-left">
-      <h1>Loosiratas</h1>
-      <div class="live-badge"><div class="dot"></div><span>Live</span></div>
+      <h1>PumpPick</h1>
+      <div class="live-badge" id="liveBadge"><div class="dot" id="liveDot"></div><span id="liveText">Ootel</span></div>
     </div>
   </div>
 
@@ -420,13 +408,12 @@
     </div>
   </div>
 
-  <div class="chart-container" style="position:relative;">
+  <div class="chart-container">
     <div class="chart-header">
       <div class="chart-title">Winner / USD &mdash; 1s</div>
       <div class="chart-name-flash" id="nameFlash">&mdash;</div>
     </div>
     <canvas id="chart"></canvas>
-    <div class="chart-tooltip" id="chartTooltip"><div class="tt-name"></div><div class="tt-price"></div></div>
   </div>
 
 </div>
@@ -476,6 +463,7 @@ let nameFlashTimer = null;
 let overlayShowTimer = null;
 let overlayHideTimer = null;
 let confettiAnimFrame = null;
+let candleAnimFrame = null;
 let lastHighlightState = false;
 
 function getNames() {
@@ -523,11 +511,12 @@ function drawChart(candles, highlightLast) {
   maxP += pad;
   const range = maxP - minP || 1;
 
-  const margin = { top: 30, bottom: 40, left: 20, right: 20 };
+  const margin = { top: 30, bottom: 20, left: 20, right: 20 };
   const chartW = w - margin.left - margin.right;
   const chartH = h - margin.top - margin.bottom;
+  const priceH = chartH * 0.7; // Price chart uses top 70%
 
-  const toY = p => margin.top + (1 - (p - minP) / range) * chartH;
+  const toY = p => margin.top + (1 - (p - minP) / range) * priceH;
   const totalSlots = candles.length;
   const visible = candles;
   const candleW = (chartW / totalSlots) * 0.65;
@@ -570,7 +559,7 @@ function drawChart(candles, highlightLast) {
     cCtx.stroke();
   }
 
-  // Candles
+  // Candles (price area)
   visible.forEach((c, i) => {
     const x = margin.left + i * gap + gap / 2;
     const bullish = c.close >= c.open;
@@ -592,50 +581,120 @@ function drawChart(candles, highlightLast) {
     cCtx.lineTo(x, toY(c.low));
     cCtx.stroke();
 
-    // Body — fully opaque so MA line doesn't bleed through
+    // Body
     const bw = isWinner ? candleW * 1.8 : candleW;
     cCtx.fillStyle = bullish ? color : (isWinner ? color : '#cc3355');
     cCtx.fillRect(x - bw / 2, bodyTop, bw, bodyH);
 
-    // Winner glow
-    if (isWinner) {
-      cCtx.shadowColor = '#00ffaa';
-      cCtx.shadowBlur = 30;
-      cCtx.fillStyle = '#00ffaa66';
-      cCtx.fillRect(x - bw / 2, bodyTop, bw, bodyH);
-      cCtx.shadowBlur = 0;
-
-      // Vertical beam
-      cCtx.fillStyle = 'rgba(0,255,170,0.06)';
-      cCtx.fillRect(x - bw, 0, bw * 2, h);
-    }
-
-    // Winner name label only
-    if (isWinner && c.name) {
+    // Floating name label — only on the latest candle or winner
+    if (c.name && (isLast || isWinner)) {
       cCtx.save();
-      cCtx.translate(x, bodyTop - 10);
-      cCtx.font = '700 20px Orbitron, sans-serif';
+      const labelColor = bullish ? '#00ffaa' : '#ff4466';
+      const wickTop = toY(c.high);
+      const labelY = wickTop - 14;
+      const priceStr = (bullish ? '+' : '') + (c.close - c.open).toFixed(2) + '  O:' + c.open.toFixed(1) + '  C:' + c.close.toFixed(1);
+
+      // Measure text
+      const nameFontSize = isWinner ? 22 : 16;
+      cCtx.font = `700 ${nameFontSize}px Rajdhani, sans-serif`;
+      const nameW = cCtx.measureText(c.name).width;
+      cCtx.font = '500 12px Rajdhani, sans-serif';
+      const priceW = cCtx.measureText(priceStr).width;
+      const boxW = Math.max(nameW, priceW) + 20;
+      const boxH = isWinner ? 52 : 44;
+
+      // Keep box within chart bounds
+      let boxX = x - boxW / 2;
+      if (boxX < margin.left) boxX = margin.left;
+      if (boxX + boxW > w - margin.right) boxX = w - margin.right - boxW;
+      const boxY = labelY - boxH;
+
+      // Box background
+      cCtx.fillStyle = 'rgba(8,12,25,0.92)';
+      cCtx.beginPath();
+      cCtx.roundRect(boxX, boxY, boxW, boxH, 6);
+      cCtx.fill();
+
+      // Box border
+      cCtx.strokeStyle = labelColor + (isWinner ? '88' : '44');
+      cCtx.lineWidth = 1;
+      cCtx.stroke();
+
+      // Name
+      cCtx.font = `700 ${nameFontSize}px Rajdhani, sans-serif`;
       cCtx.textAlign = 'center';
-      cCtx.textBaseline = 'bottom';
-      cCtx.fillStyle = '#00ffaa';
-      cCtx.shadowColor = '#00ffaa';
-      cCtx.shadowBlur = 15;
-      cCtx.fillText(c.name, 0, 0);
-      cCtx.shadowBlur = 0;
+      cCtx.textBaseline = 'top';
+      cCtx.fillStyle = labelColor;
+      cCtx.fillText(c.name, boxX + boxW / 2, boxY + 6);
+
+      // Price line
+      cCtx.font = '500 12px Rajdhani, sans-serif';
+      cCtx.fillStyle = '#506878';
+      cCtx.fillText(priceStr, boxX + boxW / 2, boxY + 6 + nameFontSize + 2);
+
+      // Small connector line from box to wick
+      cCtx.strokeStyle = labelColor + '44';
+      cCtx.lineWidth = 1;
+      cCtx.beginPath();
+      cCtx.moveTo(x, boxY + boxH);
+      cCtx.lineTo(x, wickTop);
+      cCtx.stroke();
+
       cCtx.restore();
     }
+
   });
 
-  // Bottom time axis ticks
+  // ─── VOLUME SECTION: Names as bars ────────────────────
+  const volTop = priceH + margin.top + 8;
+  const volHeight = chartH * 0.25;
+
+  // Separator line
   cCtx.strokeStyle = 'rgba(0,255,170,0.06)';
   cCtx.lineWidth = 1;
-  for (let i = 0; i < totalSlots; i += 5) {
+  cCtx.beginPath();
+  cCtx.moveTo(margin.left, volTop - 4);
+  cCtx.lineTo(w - margin.right, volTop - 4);
+  cCtx.stroke();
+
+  // Names as volume bars — the text IS the bar
+  visible.forEach((c, i) => {
+    if (!c.name) return;
     const x = margin.left + i * gap + gap / 2;
-    cCtx.beginPath();
-    cCtx.moveTo(x, h - margin.bottom);
-    cCtx.lineTo(x, h - margin.bottom + 6);
-    cCtx.stroke();
-  }
+    const bullish = c.close >= c.open;
+    const isLast = i === visible.length - 1;
+    const isWinner = isLast && highlightLast;
+
+    const color = (isWinner || bullish) ? '#00ffaa' : '#ff4466';
+    const alpha = isWinner ? 'cc' : '44';
+
+    cCtx.save();
+    cCtx.translate(x, volTop + volHeight);
+    cCtx.rotate(-Math.PI / 2);
+
+    // Font size fits the gap width
+    const fs = Math.min(gap * 0.7, 14);
+    cCtx.font = `${isWinner ? '700' : '600'} ${fs}px Rajdhani, sans-serif`;
+    cCtx.textAlign = 'left';
+    cCtx.textBaseline = 'middle';
+
+    // Truncate name to fit volume height
+    let label = c.name;
+    while (label.length > 1 && cCtx.measureText(label).width > volHeight - 4) {
+      label = label.slice(0, -1);
+    }
+    if (label !== c.name && label.length > 0) label += '.';
+
+    cCtx.fillStyle = color + alpha;
+
+    if (isWinner) {
+      cCtx.shadowColor = '#00ffaa';
+      cCtx.shadowBlur = 8;
+    }
+
+    cCtx.fillText(label, 2, 0);
+    cCtx.restore();
+  });
 }
 
 // Initial empty chart
@@ -665,11 +724,14 @@ function startRace() {
   namesEl.disabled = true;
   statusText.textContent = 'Trading...';
   statusText.style.color = '#00d4ff';
+  document.getElementById('liveBadge').classList.add('active');
+  document.getElementById('liveText').textContent = 'Live';
   document.getElementById('winnerOverlay').classList.remove('active');
   if (nameFlashTimer) { clearInterval(nameFlashTimer); nameFlashTimer = null; }
   if (overlayShowTimer) { clearTimeout(overlayShowTimer); overlayShowTimer = null; }
   if (overlayHideTimer) { clearTimeout(overlayHideTimer); overlayHideTimer = null; }
   if (confettiAnimFrame) { cancelAnimationFrame(confettiAnimFrame); confettiAnimFrame = null; }
+  if (candleAnimFrame) { cancelAnimationFrame(candleAnimFrame); candleAnimFrame = null; }
 
   // Pick random winner using crypto
   const winnerIndex = Math.floor(cryptoRand() * names.length);
@@ -727,29 +789,6 @@ function startRace() {
   raceCandles = [];
   let candleIndex = 0;
 
-  function flashNames(nameList, done) {
-    // Rapidly cycle through the batch names, then call done
-    if (nameList.length <= 1) {
-      const bullish = allCandles[candleIndex].close >= allCandles[candleIndex].open;
-      nameFlash.textContent = nameList[0];
-      nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
-      done();
-      return;
-    }
-    let fi = 0;
-    const interval = Math.max(30, Math.min(120, 800 / nameList.length));
-    nameFlashTimer = setInterval(() => {
-      const bullish = Math.random() > 0.4;
-      nameFlash.textContent = nameList[fi];
-      nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
-      fi++;
-      if (fi >= nameList.length) {
-        clearInterval(nameFlashTimer);
-        done();
-      }
-    }, interval);
-  }
-
   function addNextCandle() {
     if (candleIndex >= allCandles.length) {
       finishRace(winnerName, allCandles);
@@ -757,27 +796,108 @@ function startRace() {
     }
 
     const c = allCandles[candleIndex];
+    const isLast = candleIndex === allCandles.length - 1;
+    const nextC = candleIndex < allCandles.length - 1 ? allCandles[candleIndex + 1] : null;
 
-    // Flash through batch names, then place the candle
-    flashNames(c.names, () => {
-      raceCandles.push(c);
-      const isLast = candleIndex === allCandles.length - 1;
-      drawChart(raceCandles, isLast);
-      candleIndex++;
+    // Create animating candle starting at open price
+    const animCandle = {
+      open: c.open,
+      close: c.open,
+      high: c.open,
+      low: c.open,
+      name: c.name,
+      names: c.names,
+      isWinner: c.isWinner
+    };
 
-      // ~1 second per candle, slower near end for tension
-      const progress = candleIndex / allCandles.length;
-      let delay;
-      if (progress < 0.85) {
-        delay = 900 + Math.random() * 200;
-      } else if (progress < 0.95) {
-        delay = 1400 + Math.random() * 400;
-      } else {
-        delay = 2000 + Math.random() * 500;
+    raceCandles.push(animCandle);
+
+    const duration = isLast ? 1400 : 800;
+    const startTime = performance.now();
+    let lastNameFlick = 0;
+    let batchIdx = 0;
+    const batchNames = c.names;
+
+    function animateCandle(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+
+      // === PRICE FIGHTING ===
+      const fightStrength = Math.max(0, 1 - progress * 1.5);
+      const convergence = progress * progress * progress;
+
+      // Random micro-movement (fight)
+      const micro = (Math.random() - 0.5) * 4 * fightStrength;
+
+      // Pull toward final close
+      animCandle.close += micro + (c.close - animCandle.close) * convergence * 0.12;
+
+      // Winner explosion in final stretch
+      if (isLast && progress > 0.75) {
+        const boom = (progress - 0.75) / 0.25;
+        animCandle.close = c.open + (c.close - c.open) * (boom * boom);
       }
 
-      setTimeout(addNextCandle, delay);
-    });
+      // Track extremes
+      animCandle.high = Math.max(animCandle.high, animCandle.close);
+      animCandle.low = Math.min(animCandle.low, animCandle.close);
+
+      // === NAME FLICKERING ===
+      const flickerInterval = isLast ? 70 : 90;
+      if (now - lastNameFlick > flickerInterval) {
+        lastNameFlick = now;
+        const bullish = animCandle.close >= animCandle.open;
+
+        if (progress < 0.8) {
+          // During formation: cycle batch names + flicker with next candle name
+          if (nextC && Math.random() < 0.3) {
+            nameFlash.textContent = nextC.name;
+            nameFlash.className = 'chart-name-flash ' + (Math.random() > 0.5 ? 'green' : 'red');
+          } else {
+            nameFlash.textContent = batchNames[batchIdx % batchNames.length];
+            nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
+            batchIdx++;
+          }
+        } else {
+          // Settling on current name
+          nameFlash.textContent = c.name;
+          nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
+        }
+      }
+
+      // Redraw chart
+      drawChart(raceCandles, isLast);
+
+      if (progress < 1) {
+        candleAnimFrame = requestAnimationFrame(animateCandle);
+      } else {
+        // Snap to final pre-generated values
+        animCandle.open = c.open;
+        animCandle.close = c.close;
+        animCandle.high = c.high;
+        animCandle.low = c.low;
+        drawChart(raceCandles, isLast);
+
+        // Final name display
+        const bullish = c.close >= c.open;
+        nameFlash.textContent = c.name;
+        nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
+
+        candleIndex++;
+        candleAnimFrame = null;
+
+        // Small pause before next candle
+        const p = candleIndex / allCandles.length;
+        let delay;
+        if (p < 0.85) delay = 150 + Math.random() * 100;
+        else if (p < 0.95) delay = 300 + Math.random() * 200;
+        else delay = 500 + Math.random() * 300;
+
+        setTimeout(addNextCandle, delay);
+      }
+    }
+
+    candleAnimFrame = requestAnimationFrame(animateCandle);
   }
 
   addNextCandle();
@@ -790,6 +910,8 @@ function finishRace(winnerName, allCandles) {
   if (nameFlashTimer) { clearInterval(nameFlashTimer); nameFlashTimer = null; }
   statusText.textContent = 'PUMP!';
   statusText.style.color = '#00ffaa';
+  document.getElementById('liveBadge').classList.remove('active');
+  document.getElementById('liveText').textContent = 'Done';
 
   nameFlash.textContent = winnerName;
   nameFlash.className = 'chart-name-flash green';
@@ -909,49 +1031,6 @@ function shuffleTextarea() {
   scrambleTick();
 }
 
-// ─── CHART TOOLTIP ──────────────────────────────────────
-const tooltip = document.getElementById('chartTooltip');
-const ttName = tooltip.querySelector('.tt-name');
-const ttPrice = tooltip.querySelector('.tt-price');
-
-chartCanvas.addEventListener('mousemove', (e) => {
-  if (raceCandles.length === 0) { tooltip.classList.remove('visible'); return; }
-
-  const rect = chartCanvas.getBoundingClientRect();
-  const scaleX = chartCanvas.width / rect.width;
-  const mx = (e.clientX - rect.left) * scaleX;
-
-  const margin = { left: 20, right: 20 };
-  const chartW = chartCanvas.width - margin.left - margin.right;
-  const gap = chartW / raceCandles.length;
-
-  const idx = Math.floor((mx - margin.left) / gap);
-  if (idx < 0 || idx >= raceCandles.length) { tooltip.classList.remove('visible'); return; }
-
-  const c = raceCandles[idx];
-  const bullish = c.close >= c.open;
-
-  ttName.textContent = c.name || '-';
-  ttName.style.color = bullish ? '#00ffaa' : '#ff4466';
-  ttPrice.textContent = (bullish ? '+' : '') + (c.close - c.open).toFixed(2) + '  O:' + c.open.toFixed(1) + '  C:' + c.close.toFixed(1);
-
-  // Position tooltip near cursor but inside chart container
-  const container = chartCanvas.parentElement;
-  const containerRect = container.getBoundingClientRect();
-  let tx = e.clientX - containerRect.left + 12;
-  let ty = e.clientY - containerRect.top - 10;
-  // Keep within bounds
-  if (tx + 200 > containerRect.width) tx = tx - 220;
-  if (ty < 5) ty = 5;
-
-  tooltip.style.left = tx + 'px';
-  tooltip.style.top = ty + 'px';
-  tooltip.classList.add('visible');
-});
-
-chartCanvas.addEventListener('mouseleave', () => {
-  tooltip.classList.remove('visible');
-});
 </script>
 </body>
 </html>
