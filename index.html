@@ -902,15 +902,18 @@ function startRace() {
         if (progress < 0.8) {
           // During formation: cycle batch names + flicker with next candle name
           if (nextC && Math.random() < 0.3) {
+            animCandle.name = nextC.name;
             nameFlash.textContent = nextC.name;
             nameFlash.className = 'chart-name-flash ' + (Math.random() > 0.5 ? 'green' : 'red');
           } else {
-            nameFlash.textContent = batchNames[batchIdx % batchNames.length];
+            animCandle.name = batchNames[batchIdx % batchNames.length];
+            nameFlash.textContent = animCandle.name;
             nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
             batchIdx++;
           }
         } else {
           // Settling on current name
+          animCandle.name = c.name;
           nameFlash.textContent = c.name;
           nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
         }
@@ -927,6 +930,7 @@ function startRace() {
         animCandle.close = c.close;
         animCandle.high = c.high;
         animCandle.low = c.low;
+        animCandle.name = c.name;
         drawChart(raceCandles, isLast);
 
         // Final name display
