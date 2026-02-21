@@ -422,11 +422,18 @@ const spinBtn = document.getElementById('spinBtn');
 
 let names = [];
 let racing = false;
+let raceCandles = [];
+let nameFlashTimer = null;
+let overlayShowTimer = null;
+let overlayHideTimer = null;
+let confettiAnimFrame = null;
+let lastHighlightState = false;
 
 function getNames() {
   return namesEl.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
 }
 namesEl.addEventListener('input', () => {
+  if (racing) return;
   names = getNames();
   nameCountEl.textContent = names.length;
   winChanceEl.textContent = names.length > 0 ? (100 / names.length).toFixed(1) + '%' : '-';
@@ -438,10 +445,13 @@ function resizeChart() {
   chartCanvas.height = rect.height * 2;
 }
 resizeChart();
-window.addEventListener('resize', resizeChart);
+window.addEventListener('resize', () => {
+  resizeChart();
+  drawChart(raceCandles, lastHighlightState);
+});
 
 function drawChart(candles, highlightLast) {
-  resizeChart();
+  lastHighlightState = highlightLast;
   const w = chartCanvas.width;
   const h = chartCanvas.height;
   cCtx.clearRect(0, 0, w, h);
@@ -588,9 +598,15 @@ function drawChart(candles, highlightLast) {
 drawChart([], false);
 
 // ─── RACE LOGIC ─────────────────────────────────────────
+function cryptoRand() {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return arr[0] / 4294967296;
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(cryptoRand() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -602,12 +618,17 @@ function startRace() {
   if (racing) return;
   racing = true;
   spinBtn.disabled = true;
+  namesEl.disabled = true;
   statusText.textContent = 'Trading...';
   statusText.style.color = '#00d4ff';
   document.getElementById('winnerOverlay').classList.remove('active');
+  if (nameFlashTimer) { clearInterval(nameFlashTimer); nameFlashTimer = null; }
+  if (overlayShowTimer) { clearTimeout(overlayShowTimer); overlayShowTimer = null; }
+  if (overlayHideTimer) { clearTimeout(overlayHideTimer); overlayHideTimer = null; }
+  if (confettiAnimFrame) { cancelAnimationFrame(confettiAnimFrame); confettiAnimFrame = null; }
 
-  // Pick random winner
-  const winnerIndex = Math.floor(Math.random() * names.length);
+  // Pick random winner using crypto
+  const winnerIndex = Math.floor(cryptoRand() * names.length);
   const winnerName = names[winnerIndex];
 
   // Shuffle all names, remove winner
@@ -653,15 +674,14 @@ function startRace() {
     const close = open + drift + (Math.random() - 0.5) * volatility;
     const high = Math.max(open, close) + Math.random() * volatility * 0.5;
     const low = Math.min(open, close) - Math.random() * volatility * 0.5;
-    price = close;
+    price = Math.max(1, close);
 
     const displayName = isLast ? winnerName : batches[i][batches[i].length - 1];
-    allCandles.push({ open, close, high, low, name: displayName, names: batches[i], isWinner: isLast });
+    allCandles.push({ open: Math.max(0.5, open), close: Math.max(1, close), high: Math.max(1, high), low: Math.max(0.5, low), name: displayName, names: batches[i], isWinner: isLast });
   }
 
-  const raceCandles = [];
+  raceCandles = [];
   let candleIndex = 0;
-  let nameFlashTimer = null;
 
   function flashNames(nameList, done) {
     // Rapidly cycle through the batch names, then call done
@@ -722,6 +742,8 @@ function startRace() {
 function finishRace(winnerName, allCandles) {
   racing = false;
   spinBtn.disabled = false;
+  namesEl.disabled = false;
+  if (nameFlashTimer) { clearInterval(nameFlashTimer); nameFlashTimer = null; }
   statusText.textContent = 'PUMP!';
   statusText.style.color = '#00ffaa';
 
@@ -731,30 +753,24 @@ function finishRace(winnerName, allCandles) {
   // Calculate pump %
   const lastCandle = allCandles[allCandles.length - 1];
   const prevCandle = allCandles[allCandles.length - 2];
-  const pumpPct = ((lastCandle.close - prevCandle.close) / prevCandle.close * 100).toFixed(1);
+  const pumpPct = Math.min(9999, Math.abs((lastCandle.close - prevCandle.close) / prevCandle.close * 100)).toFixed(1);
 
   // Show winner overlay
   document.getElementById('winnerName').textContent = winnerName;
   document.getElementById('winnerPct').textContent = '+' + pumpPct + '%';
-  setTimeout(() => {
+  overlayShowTimer = setTimeout(() => {
     document.getElementById('winnerOverlay').classList.add('active');
     launchConfetti();
   }, 200);
 
-  // Hide overlay after 4s
-  setTimeout(() => {
+  overlayHideTimer = setTimeout(() => {
     document.getElementById('winnerOverlay').classList.remove('active');
   }, 5000);
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
 // ─── CONFETTI ───────────────────────────────────────────
 function launchConfetti() {
+  if (confettiAnimFrame) { cancelAnimationFrame(confettiAnimFrame); confettiAnimFrame = null; }
   const c = document.getElementById('confetti');
   const ctx = c.getContext('2d');
   c.width = window.innerWidth;
@@ -800,10 +816,10 @@ function launchConfetti() {
       ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
       ctx.restore();
     });
-    if (alive) requestAnimationFrame(animate);
-    else ctx.clearRect(0, 0, c.width, c.height);
+    if (alive) confettiAnimFrame = requestAnimationFrame(animate);
+    else { ctx.clearRect(0, 0, c.width, c.height); confettiAnimFrame = null; }
   }
-  requestAnimationFrame(animate);
+  confettiAnimFrame = requestAnimationFrame(animate);
 }
 </script>
 </body>
