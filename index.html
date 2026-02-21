@@ -469,10 +469,10 @@ function drawChart(candles, highlightLast) {
   const chartH = h - margin.top - margin.bottom;
 
   const toY = p => margin.top + (1 - (p - minP) / range) * chartH;
-  const maxVisible = 60;
-  const visible = candles.slice(-maxVisible);
-  const candleW = (chartW / maxVisible) * 0.65;
-  const gap = chartW / maxVisible;
+  const totalSlots = candles.length;
+  const visible = candles;
+  const candleW = (chartW / totalSlots) * 0.65;
+  const gap = chartW / totalSlots;
 
   // Horizontal grid + price labels
   cCtx.textAlign = 'right';
@@ -497,7 +497,7 @@ function drawChart(candles, highlightLast) {
     cCtx.strokeStyle = 'rgba(168,85,247,0.25)';
     cCtx.lineWidth = 2;
     const maPeriod = Math.min(10, candles.length);
-    const startI = Math.max(0, candles.length - maxVisible);
+    const startI = 0;
     for (let i = startI; i < candles.length; i++) {
       const fromI = Math.max(0, i - maPeriod);
       let sum = 0, cnt = 0;
@@ -575,7 +575,7 @@ function drawChart(candles, highlightLast) {
   // Bottom time axis ticks
   cCtx.strokeStyle = 'rgba(0,255,170,0.06)';
   cCtx.lineWidth = 1;
-  for (let i = 0; i < maxVisible; i += 5) {
+  for (let i = 0; i < totalSlots; i += 5) {
     const x = margin.left + i * gap + gap / 2;
     cCtx.beginPath();
     cCtx.moveTo(x, h - margin.bottom);
