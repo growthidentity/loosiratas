@@ -532,22 +532,44 @@ function drawWheel(highlightIndex = -1) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Text
+    // Text — drawn along the radius like a spoke
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(midAngle);
-    const textR = r * 0.62;
-    const label = name.length > 14 ? name.slice(0, 12) + '..' : name;
-    const fontSize = Math.min(20, 220 / names.length + 10);
+
+    const innerR = 38;
+    const outerR = r - 12;
+    const availableLen = outerR - innerR;
+
+    // Arc height at the text midpoint determines max font size
+    const midR = (innerR + outerR) / 2;
+    const arcHeight = midR * sliceAngle * 0.75;
+    const fontSize = Math.max(10, Math.min(20, arcHeight, availableLen / 8));
+
     ctx.font = `700 ${fontSize}px Rajdhani, sans-serif`;
-    ctx.textAlign = 'center';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
+
+    // Truncate name to fit the available radial length
+    let label = name;
+    let tw = ctx.measureText(label).width;
+    if (tw > availableLen) {
+      while (label.length > 1 && ctx.measureText(label + '..').width > availableLen) {
+        label = label.slice(0, -1);
+      }
+      label += '..';
+      tw = ctx.measureText(label).width;
+    }
+
+    // Center the text along the radial span
+    const textStart = innerR + (availableLen - tw) / 2;
+
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillText(label, textR + 1, 1);
+    ctx.fillText(label, textStart + 1, 1);
     // Main text
     ctx.fillStyle = '#fff';
-    ctx.fillText(label, textR, 0);
+    ctx.fillText(label, textStart, 0);
     ctx.restore();
   });
 
