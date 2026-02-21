@@ -610,33 +610,41 @@ function startRace() {
   const winnerIndex = Math.floor(Math.random() * names.length);
   const winnerName = names[winnerIndex];
 
-  // Shuffle all names, remove winner, put winner last = every name gets one candle
+  // Shuffle all names, remove winner
   const others = names.filter((_, i) => i !== winnerIndex);
   shuffle(others);
-  const orderedNames = [...others, winnerName];
-  const totalCandles = orderedNames.length;
 
-  const raceCandles = [];
-  let price = 100;
-  let candleIndex = 0;
+  // Always 30-40 candles, ~1s each. Group names into batches per candle.
+  const totalCandles = 30 + Math.floor(Math.random() * 10);
+  const batchSize = Math.max(1, Math.ceil(others.length / (totalCandles - 1)));
 
-  // Pre-generate all candles — one per name
+  // Split names into batches for each candle
+  const batches = [];
+  for (let i = 0; i < others.length; i += batchSize) {
+    batches.push(others.slice(i, i + batchSize));
+  }
+  // Pad with small random batches if we need more candles
+  while (batches.length < totalCandles - 1) {
+    batches.push([others[Math.floor(Math.random() * others.length)]]);
+  }
+  // Last batch is always just the winner
+  batches.push([winnerName]);
+
+  // Pre-generate candle data
   const allCandles = [];
-  for (let i = 0; i < totalCandles; i++) {
-    const isLast = i === totalCandles - 1;
-    const progress = i / totalCandles;
+  let price = 100;
+  for (let i = 0; i < batches.length; i++) {
+    const isLast = i === batches.length - 1;
+    const progress = i / batches.length;
 
     let volatility, drift;
     if (isLast) {
-      // MASSIVE pump for winner
       volatility = 2;
       drift = 15 + Math.random() * 15;
-    } else if (progress > 0.92) {
-      // Build tension — small candles, slight downtrend
+    } else if (progress > 0.88) {
       volatility = 1 + Math.random() * 1.5;
       drift = -1.5 + Math.random() * 1;
     } else {
-      // Normal random trading
       volatility = 2 + Math.random() * 5;
       drift = (Math.random() - 0.48) * 3;
     }
@@ -647,12 +655,36 @@ function startRace() {
     const low = Math.min(open, close) - Math.random() * volatility * 0.5;
     price = close;
 
-    allCandles.push({ open, close, high, low, name: orderedNames[i], isWinner: isLast });
+    const displayName = isLast ? winnerName : batches[i][batches[i].length - 1];
+    allCandles.push({ open, close, high, low, name: displayName, names: batches[i], isWinner: isLast });
   }
 
-  // Animate candles — speed adapts to total count so it always feels good
-  // Base speed: fast for many names, slower for few
-  const baseSpeed = totalCandles > 200 ? 8 : totalCandles > 100 ? 15 : totalCandles > 50 ? 30 : 60;
+  const raceCandles = [];
+  let candleIndex = 0;
+  let nameFlashTimer = null;
+
+  function flashNames(nameList, done) {
+    // Rapidly cycle through the batch names, then call done
+    if (nameList.length <= 1) {
+      const bullish = allCandles[candleIndex].close >= allCandles[candleIndex].open;
+      nameFlash.textContent = nameList[0];
+      nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
+      done();
+      return;
+    }
+    let fi = 0;
+    const interval = Math.max(30, Math.min(120, 800 / nameList.length));
+    nameFlashTimer = setInterval(() => {
+      const bullish = Math.random() > 0.4;
+      nameFlash.textContent = nameList[fi];
+      nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
+      fi++;
+      if (fi >= nameList.length) {
+        clearInterval(nameFlashTimer);
+        done();
+      }
+    }, interval);
+  }
 
   function addNextCandle() {
     if (candleIndex >= allCandles.length) {
@@ -661,35 +693,27 @@ function startRace() {
     }
 
     const c = allCandles[candleIndex];
-    raceCandles.push(c);
 
-    // Flash name
-    const bullish = c.close >= c.open;
-    nameFlash.textContent = c.name;
-    nameFlash.className = 'chart-name-flash ' + (bullish ? 'green' : 'red');
+    // Flash through batch names, then place the candle
+    flashNames(c.names, () => {
+      raceCandles.push(c);
+      const isLast = candleIndex === allCandles.length - 1;
+      drawChart(raceCandles, isLast);
+      candleIndex++;
 
-    const isLast = candleIndex === allCandles.length - 1;
-    drawChart(raceCandles, isLast);
+      // ~1 second per candle, slower near end for tension
+      const progress = candleIndex / allCandles.length;
+      let delay;
+      if (progress < 0.85) {
+        delay = 900 + Math.random() * 200;
+      } else if (progress < 0.95) {
+        delay = 1400 + Math.random() * 400;
+      } else {
+        delay = 2000 + Math.random() * 500;
+      }
 
-    candleIndex++;
-
-    // Speed curve: fast at start, slows down near end for drama
-    const progress = candleIndex / allCandles.length;
-    let speed;
-    if (progress < 0.7) {
-      speed = baseSpeed + Math.random() * baseSpeed * 0.5;
-    } else if (progress < 0.9) {
-      // Slow down
-      speed = baseSpeed * 3 + Math.random() * baseSpeed * 2;
-    } else if (progress < 0.97) {
-      // Dramatic tension
-      speed = baseSpeed * 6 + Math.random() * baseSpeed * 4;
-    } else {
-      // Final candles — big pause
-      speed = 500 + Math.random() * 300;
-    }
-
-    setTimeout(addNextCandle, speed);
+      setTimeout(addNextCandle, delay);
+    });
   }
 
   addNextCandle();
