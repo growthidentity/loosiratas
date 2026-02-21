@@ -588,6 +588,14 @@ function drawChart(candles, highlightLast) {
 drawChart([], false);
 
 // ─── RACE LOGIC ─────────────────────────────────────────
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 function startRace() {
   names = getNames();
   if (names.length < 2) { alert('Lisa vahemalt 2 nime!'); return; }
@@ -598,32 +606,35 @@ function startRace() {
   statusText.style.color = '#00d4ff';
   document.getElementById('winnerOverlay').classList.remove('active');
 
+  // Pick random winner
   const winnerIndex = Math.floor(Math.random() * names.length);
   const winnerName = names[winnerIndex];
 
-  const totalCandles = 35 + Math.floor(Math.random() * 15); // 35-50 candles
+  // Shuffle all names, remove winner, put winner last = every name gets one candle
+  const others = names.filter((_, i) => i !== winnerIndex);
+  shuffle(others);
+  const orderedNames = [...others, winnerName];
+  const totalCandles = orderedNames.length;
+
   const raceCandles = [];
   let price = 100;
   let candleIndex = 0;
 
-  // Pre-generate all candles
+  // Pre-generate all candles — one per name
   const allCandles = [];
   for (let i = 0; i < totalCandles; i++) {
     const isLast = i === totalCandles - 1;
-    const nearEnd = i > totalCandles - 5;
-
-    // Pick a random name for this candle
-    const name = isLast ? winnerName : names[Math.floor(Math.random() * names.length)];
+    const progress = i / totalCandles;
 
     let volatility, drift;
     if (isLast) {
       // MASSIVE pump for winner
       volatility = 2;
       drift = 15 + Math.random() * 15;
-    } else if (nearEnd) {
-      // Build tension - smaller candles, slight downtrend
-      volatility = 1 + Math.random() * 2;
-      drift = -1 + Math.random() * 1.5;
+    } else if (progress > 0.92) {
+      // Build tension — small candles, slight downtrend
+      volatility = 1 + Math.random() * 1.5;
+      drift = -1.5 + Math.random() * 1;
     } else {
       // Normal random trading
       volatility = 2 + Math.random() * 5;
@@ -636,11 +647,12 @@ function startRace() {
     const low = Math.min(open, close) - Math.random() * volatility * 0.5;
     price = close;
 
-    allCandles.push({ open, close, high, low, name, isWinner: isLast });
+    allCandles.push({ open, close, high, low, name: orderedNames[i], isWinner: isLast });
   }
 
-  // Animate candles appearing one by one
-  let speed = 80; // ms per candle, speeds up
+  // Animate candles — speed adapts to total count so it always feels good
+  // Base speed: fast for many names, slower for few
+  const baseSpeed = totalCandles > 200 ? 8 : totalCandles > 100 ? 15 : totalCandles > 50 ? 30 : 60;
 
   function addNextCandle() {
     if (candleIndex >= allCandles.length) {
@@ -661,16 +673,20 @@ function startRace() {
 
     candleIndex++;
 
-    // Speed curve: start medium, slow down near end for tension, then BAM
+    // Speed curve: fast at start, slows down near end for drama
     const progress = candleIndex / allCandles.length;
-    if (progress < 0.5) {
-      speed = 60 + Math.random() * 40;
-    } else if (progress < 0.85) {
-      speed = 100 + Math.random() * 80; // slow down = tension
-    } else if (progress < 0.95) {
-      speed = 200 + Math.random() * 150; // dramatic pause zone
+    let speed;
+    if (progress < 0.7) {
+      speed = baseSpeed + Math.random() * baseSpeed * 0.5;
+    } else if (progress < 0.9) {
+      // Slow down
+      speed = baseSpeed * 3 + Math.random() * baseSpeed * 2;
+    } else if (progress < 0.97) {
+      // Dramatic tension
+      speed = baseSpeed * 6 + Math.random() * baseSpeed * 4;
     } else {
-      speed = 400; // final candle dramatic delay
+      // Final candles — big pause
+      speed = 500 + Math.random() * 300;
     }
 
     setTimeout(addNextCandle, speed);
