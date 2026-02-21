@@ -335,75 +335,30 @@
     margin-top: 0.5rem;
   }
 
-  /* Shuffle randomizer */
-  .shuffle-section {
-    margin-top: 1.2rem;
-    display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    align-items: stretch;
-  }
-  .shuffle-panel {
-    background: rgba(8,12,25,0.9);
-    border: 1px solid rgba(0,255,170,0.1);
-    border-radius: 16px;
-    padding: 1.2rem;
-    flex: 1;
-    min-width: 280px;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  .shuffle-panel::before {
-    content: '';
+  /* Chart tooltip */
+  .chart-tooltip {
     position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(168,85,247,0.3), rgba(0,212,255,0.3), transparent);
-  }
-  .shuffle-display {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 80px;
-    margin: 0.8rem 0;
-    background: rgba(3,5,15,0.7);
-    border-radius: 10px;
-    border: 1px solid rgba(0,255,170,0.06);
-    overflow: hidden;
-    position: relative;
-  }
-  .shuffle-name {
+    pointer-events: none;
+    background: rgba(5,10,20,0.95);
+    border: 1px solid rgba(0,255,170,0.25);
+    border-radius: 8px;
+    padding: 0.4rem 0.7rem;
     font-family: 'Orbitron', monospace;
-    font-size: 1.6rem;
-    font-weight: 900;
-    color: #405060;
-    letter-spacing: 3px;
-    transition: color 0.1s;
-    text-align: center;
-    padding: 0 1rem;
-    word-break: break-word;
-  }
-  .shuffle-name.rolling {
-    color: #607888;
-    animation: shuffleFlicker 0.08s infinite alternate;
-  }
-  @keyframes shuffleFlicker {
-    0% { opacity: 0.7; }
-    100% { opacity: 1; }
-  }
-  .shuffle-name.winner {
+    font-size: 0.7rem;
+    font-weight: 700;
     color: #00ffaa;
-    text-shadow: 0 0 20px rgba(0,255,170,0.5);
-    animation: shuffleWin 0.4s ease-out;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+    box-shadow: 0 0 15px rgba(0,255,170,0.1);
   }
-  @keyframes shuffleWin {
-    0% { transform: scale(0.7); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-  }
+  .chart-tooltip.visible { opacity: 1; }
+  .chart-tooltip .tt-name { color: #e0f0ff; font-size: 0.8rem; }
+  .chart-tooltip .tt-price { color: #607080; font-size: 0.55rem; margin-top: 2px; letter-spacing: 0.5px; }
+
+  /* Shuffle button */
   .shuffle-btn {
     font-family: 'Orbitron', monospace;
     font-size: 0.7rem;
@@ -417,51 +372,12 @@
     padding: 0.6rem 2rem;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-    align-self: center;
   }
   .shuffle-btn:hover:not(:disabled) {
     transform: scale(1.03);
-    box-shadow: 0 0 25px rgba(168,85,247,0.3);
+    box-shadow: 0 0 20px rgba(168,85,247,0.3);
   }
   .shuffle-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-  .shuffle-history {
-    flex: 1;
-    min-width: 200px;
-  }
-  .history-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    max-height: 160px;
-    overflow-y: auto;
-    padding-right: 0.3rem;
-  }
-  .history-list::-webkit-scrollbar { width: 4px; }
-  .history-list::-webkit-scrollbar-track { background: transparent; }
-  .history-list::-webkit-scrollbar-thumb { background: rgba(0,255,170,0.15); border-radius: 2px; }
-  .history-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.3rem 0.6rem;
-    background: rgba(0,255,170,0.04);
-    border-radius: 6px;
-    border-left: 2px solid #00ffaa44;
-  }
-  .history-num {
-    font-family: 'Orbitron', monospace;
-    font-size: 0.5rem;
-    color: #00ffaa55;
-    min-width: 18px;
-  }
-  .history-name {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #90b0c0;
-  }
 
   .confetti-canvas {
     position: fixed;
@@ -488,7 +404,10 @@
 
   <div class="input-row">
     <div class="input-panel">
-      <label>Kleebi nimed (iga nimi eraldi real)</label>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+        <label style="margin:0;">Kleebi nimed (iga nimi eraldi real)</label>
+        <button class="shuffle-btn" id="shuffleBtn" onclick="shuffleTextarea()" style="padding:0.35rem 1rem;font-size:0.55rem;letter-spacing:2px;">Sega</button>
+      </div>
       <textarea id="names" placeholder="Mari Maasikas&#10;Jaan Jansen&#10;Kati Karu&#10;Toomas Tamm"></textarea>
     </div>
     <div class="input-panel" style="flex:0; min-width: auto; display:flex; flex-direction:column; justify-content:space-between; gap:0.8rem;">
@@ -501,33 +420,15 @@
     </div>
   </div>
 
-  <div class="chart-container">
+  <div class="chart-container" style="position:relative;">
     <div class="chart-header">
       <div class="chart-title">Winner / USD &mdash; 1s</div>
       <div class="chart-name-flash" id="nameFlash">&mdash;</div>
     </div>
     <canvas id="chart"></canvas>
+    <div class="chart-tooltip" id="chartTooltip"><div class="tt-name"></div><div class="tt-price"></div></div>
   </div>
 
-  <div class="shuffle-section">
-    <div class="shuffle-panel">
-      <div class="panel-header">
-        <div class="icon" style="border-color:rgba(168,85,247,0.25);background:rgba(168,85,247,0.08);">&#9858;</div>
-        <div class="title" style="color:#a855f799;">Shuffle</div>
-      </div>
-      <div class="shuffle-display">
-        <div class="shuffle-name" id="shuffleName">-</div>
-      </div>
-      <button class="shuffle-btn" id="shuffleBtn" onclick="startShuffle()">Shuffle</button>
-    </div>
-    <div class="shuffle-panel shuffle-history">
-      <div class="panel-header">
-        <div class="icon" style="border-color:rgba(168,85,247,0.25);background:rgba(168,85,247,0.08);">&#9776;</div>
-        <div class="title" style="color:#a855f799;">Ajalugu</div>
-      </div>
-      <ul class="history-list" id="historyList"></ul>
-    </div>
-  </div>
 </div>
 
 <div class="winner-overlay" id="winnerOverlay">
@@ -709,21 +610,16 @@ function drawChart(candles, highlightLast) {
       cCtx.fillRect(x - bw, 0, bw * 2, h);
     }
 
-    // Name label on candle
-    if (c.name && (isWinner || visible.length <= 30)) {
+    // Winner name label only
+    if (isWinner && c.name) {
       cCtx.save();
-      cCtx.translate(x, bodyTop - 8);
-      cCtx.rotate(-Math.PI / 4);
-      cCtx.font = `${isWinner ? '700 18' : '600 13'}px Rajdhani, sans-serif`;
-      cCtx.textAlign = 'left';
+      cCtx.translate(x, bodyTop - 10);
+      cCtx.font = '700 20px Orbitron, sans-serif';
+      cCtx.textAlign = 'center';
       cCtx.textBaseline = 'bottom';
-      if (isWinner) {
-        cCtx.fillStyle = '#00ffaa';
-        cCtx.shadowColor = '#00ffaa';
-        cCtx.shadowBlur = 10;
-      } else {
-        cCtx.fillStyle = bullish ? '#00ffaa88' : '#ff446688';
-      }
+      cCtx.fillStyle = '#00ffaa';
+      cCtx.shadowColor = '#00ffaa';
+      cCtx.shadowBlur = 15;
       cCtx.fillText(c.name, 0, 0);
       cCtx.shadowBlur = 0;
       cCtx.restore();
@@ -970,71 +866,92 @@ function launchConfetti() {
   confettiAnimFrame = requestAnimationFrame(animate);
 }
 
-// ─── SHUFFLE RANDOMIZER ─────────────────────────────────
-const shuffleNameEl = document.getElementById('shuffleName');
+// ─── TEXTAREA SHUFFLE ───────────────────────────────────
 const shuffleBtn = document.getElementById('shuffleBtn');
-const historyList = document.getElementById('historyList');
 let shuffling = false;
-let shuffleHistory = [];
 
-function startShuffle() {
+function shuffleTextarea() {
   names = getNames();
-  if (names.length < 2) { alert('Lisa vahemalt 2 nime!'); return; }
-  if (shuffling) return;
+  if (names.length < 2) return;
+  if (shuffling || racing) return;
   shuffling = true;
   shuffleBtn.disabled = true;
 
-  // Pick winner
-  const winnerIndex = Math.floor(cryptoRand() * names.length);
-  const winnerName = names[winnerIndex];
+  const finalNames = [...names];
+  shuffle(finalNames);
 
-  // Shuffle animation: cycle through random names, slowing down
-  shuffleNameEl.className = 'shuffle-name rolling';
+  // Animate: rapidly scramble the textarea text, then settle
   let tick = 0;
-  const totalTicks = 25 + Math.floor(cryptoRand() * 10);
-  let delay = 40;
+  const totalTicks = 15;
 
-  function nextTick() {
+  function scrambleTick() {
     if (tick >= totalTicks) {
-      // Land on winner
-      shuffleNameEl.textContent = winnerName;
-      shuffleNameEl.className = 'shuffle-name winner';
+      // Set final shuffled order
+      namesEl.value = finalNames.join('\n');
+      namesEl.dispatchEvent(new Event('input'));
       shuffling = false;
       shuffleBtn.disabled = false;
-
-      // Add to history
-      shuffleHistory.unshift(winnerName);
-      if (shuffleHistory.length > 20) shuffleHistory.pop();
-      renderHistory();
       return;
     }
 
-    // Show random name
-    const randName = names[Math.floor(cryptoRand() * names.length)];
-    shuffleNameEl.textContent = randName;
+    // Show a random permutation each tick
+    const temp = [...names];
+    shuffle(temp);
+    namesEl.value = temp.join('\n');
     tick++;
 
-    // Ease out: gets slower toward the end
+    // Slow down toward the end
     const progress = tick / totalTicks;
-    if (progress < 0.5) {
-      delay = 40 + progress * 40;
-    } else if (progress < 0.8) {
-      delay = 80 + (progress - 0.5) * 300;
-    } else {
-      delay = 180 + (progress - 0.8) * 600;
-    }
-
-    setTimeout(nextTick, delay);
+    const delay = 30 + progress * 100;
+    setTimeout(scrambleTick, delay);
   }
 
-  nextTick();
+  scrambleTick();
 }
 
-function renderHistory() {
-  historyList.innerHTML = shuffleHistory.map((name, i) =>
-    `<li class="history-item"><span class="history-num">#${i + 1}</span><span class="history-name">${name.replace(/</g, '&lt;')}</span></li>`
-  ).join('');
-}
+// ─── CHART TOOLTIP ──────────────────────────────────────
+const tooltip = document.getElementById('chartTooltip');
+const ttName = tooltip.querySelector('.tt-name');
+const ttPrice = tooltip.querySelector('.tt-price');
+
+chartCanvas.addEventListener('mousemove', (e) => {
+  if (raceCandles.length === 0) { tooltip.classList.remove('visible'); return; }
+
+  const rect = chartCanvas.getBoundingClientRect();
+  const scaleX = chartCanvas.width / rect.width;
+  const mx = (e.clientX - rect.left) * scaleX;
+
+  const margin = { left: 20, right: 20 };
+  const chartW = chartCanvas.width - margin.left - margin.right;
+  const gap = chartW / raceCandles.length;
+
+  const idx = Math.floor((mx - margin.left) / gap);
+  if (idx < 0 || idx >= raceCandles.length) { tooltip.classList.remove('visible'); return; }
+
+  const c = raceCandles[idx];
+  const bullish = c.close >= c.open;
+
+  ttName.textContent = c.name || '-';
+  ttName.style.color = bullish ? '#00ffaa' : '#ff4466';
+  ttPrice.textContent = (bullish ? '+' : '') + (c.close - c.open).toFixed(2) + '  O:' + c.open.toFixed(1) + '  C:' + c.close.toFixed(1);
+
+  // Position tooltip near cursor but inside chart container
+  const container = chartCanvas.parentElement;
+  const containerRect = container.getBoundingClientRect();
+  let tx = e.clientX - containerRect.left + 12;
+  let ty = e.clientY - containerRect.top - 10;
+  // Keep within bounds
+  if (tx + 200 > containerRect.width) tx = tx - 220;
+  if (ty < 5) ty = 5;
+
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top = ty + 'px';
+  tooltip.classList.add('visible');
+});
+
+chartCanvas.addEventListener('mouseleave', () => {
+  tooltip.classList.remove('visible');
+});
 </script>
 </body>
 </html>
