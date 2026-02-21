@@ -506,6 +506,30 @@ let overlayHideTimer = null;
 let confettiAnimFrame = null;
 let candleAnimFrame = null;
 let lastHighlightState = false;
+let hoveredCandleIndex = -1;
+
+chartCanvas.addEventListener('mousemove', (e) => {
+  if (raceCandles.length === 0) { hoveredCandleIndex = -1; return; }
+  const rect = chartCanvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * 2; // canvas is 2x
+  const cw = chartCanvas.width;
+  const margin = 20;
+  const chartW = cw - margin * 2;
+  const gap = chartW / raceCandles.length;
+  const idx = Math.floor((mx - margin) / gap);
+  const newIdx = (idx >= 0 && idx < raceCandles.length) ? idx : -1;
+  chartCanvas.style.cursor = (newIdx >= 0 && raceCandles[newIdx]?.name) ? 'pointer' : 'default';
+  if (newIdx !== hoveredCandleIndex) {
+    hoveredCandleIndex = newIdx;
+    if (!candleAnimFrame) drawChart(raceCandles, lastHighlightState);
+  }
+});
+chartCanvas.addEventListener('mouseleave', () => {
+  if (hoveredCandleIndex !== -1) {
+    hoveredCandleIndex = -1;
+    if (!candleAnimFrame) drawChart(raceCandles, lastHighlightState);
+  }
+});
 
 function getNames() {
   return namesEl.value.split('\n').map(n => n.trim()).filter(n => n.length > 0);
@@ -664,6 +688,42 @@ function drawChart(candles, highlightLast) {
         cCtx.fillStyle = '#506878';
         cCtx.fillText(priceStr, boxX + boxW / 2, boxY + 6 + nameFontSize + 2);
         cCtx.strokeStyle = labelColor + '44';
+        cCtx.lineWidth = 1;
+        cCtx.beginPath();
+        cCtx.moveTo(x, boxY + boxH);
+        cCtx.lineTo(x, wickTop);
+        cCtx.stroke();
+      } else if (i === hoveredCandleIndex) {
+        // === Hovered: show full floating label box ===
+        const labelY = wickTop - 10;
+        const priceStr = (bullish ? '+' : '') + (c.close - c.open).toFixed(2) + '  O:' + c.open.toFixed(1) + '  C:' + c.close.toFixed(1);
+        const nameFontSize = 14;
+        cCtx.font = `700 ${nameFontSize}px Rajdhani, sans-serif`;
+        const nameW = cCtx.measureText(c.name).width;
+        cCtx.font = '500 11px Rajdhani, sans-serif';
+        const priceW = cCtx.measureText(priceStr).width;
+        const boxW = Math.max(nameW, priceW) + 16;
+        const boxH = 40;
+        let boxX = x - boxW / 2;
+        if (boxX < margin.left) boxX = margin.left;
+        if (boxX + boxW > w - margin.right) boxX = w - margin.right - boxW;
+        const boxY = labelY - boxH;
+        cCtx.fillStyle = 'rgba(8,12,25,0.94)';
+        cCtx.beginPath();
+        cCtx.roundRect(boxX, boxY, boxW, boxH, 5);
+        cCtx.fill();
+        cCtx.strokeStyle = labelColor + '66';
+        cCtx.lineWidth = 1;
+        cCtx.stroke();
+        cCtx.font = `700 ${nameFontSize}px Rajdhani, sans-serif`;
+        cCtx.textAlign = 'center';
+        cCtx.textBaseline = 'top';
+        cCtx.fillStyle = labelColor;
+        cCtx.fillText(c.name, boxX + boxW / 2, boxY + 5);
+        cCtx.font = '500 11px Rajdhani, sans-serif';
+        cCtx.fillStyle = '#506878';
+        cCtx.fillText(priceStr, boxX + boxW / 2, boxY + 5 + nameFontSize + 1);
+        cCtx.strokeStyle = labelColor + '33';
         cCtx.lineWidth = 1;
         cCtx.beginPath();
         cCtx.moveTo(x, boxY + boxH);
