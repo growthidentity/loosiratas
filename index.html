@@ -335,6 +335,134 @@
     margin-top: 0.5rem;
   }
 
+  /* Shuffle randomizer */
+  .shuffle-section {
+    margin-top: 1.2rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .shuffle-panel {
+    background: rgba(8,12,25,0.9);
+    border: 1px solid rgba(0,255,170,0.1);
+    border-radius: 16px;
+    padding: 1.2rem;
+    flex: 1;
+    min-width: 280px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .shuffle-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(168,85,247,0.3), rgba(0,212,255,0.3), transparent);
+  }
+  .shuffle-display {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    margin: 0.8rem 0;
+    background: rgba(3,5,15,0.7);
+    border-radius: 10px;
+    border: 1px solid rgba(0,255,170,0.06);
+    overflow: hidden;
+    position: relative;
+  }
+  .shuffle-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #405060;
+    letter-spacing: 3px;
+    transition: color 0.1s;
+    text-align: center;
+    padding: 0 1rem;
+    word-break: break-word;
+  }
+  .shuffle-name.rolling {
+    color: #607888;
+    animation: shuffleFlicker 0.08s infinite alternate;
+  }
+  @keyframes shuffleFlicker {
+    0% { opacity: 0.7; }
+    100% { opacity: 1; }
+  }
+  .shuffle-name.winner {
+    color: #00ffaa;
+    text-shadow: 0 0 20px rgba(0,255,170,0.5);
+    animation: shuffleWin 0.4s ease-out;
+  }
+  @keyframes shuffleWin {
+    0% { transform: scale(0.7); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  .shuffle-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #050510;
+    background: linear-gradient(135deg, #a855f7, #00d4ff);
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 2rem;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    align-self: center;
+  }
+  .shuffle-btn:hover:not(:disabled) {
+    transform: scale(1.03);
+    box-shadow: 0 0 25px rgba(168,85,247,0.3);
+  }
+  .shuffle-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .shuffle-history {
+    flex: 1;
+    min-width: 200px;
+  }
+  .history-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    max-height: 160px;
+    overflow-y: auto;
+    padding-right: 0.3rem;
+  }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-track { background: transparent; }
+  .history-list::-webkit-scrollbar-thumb { background: rgba(0,255,170,0.15); border-radius: 2px; }
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.6rem;
+    background: rgba(0,255,170,0.04);
+    border-radius: 6px;
+    border-left: 2px solid #00ffaa44;
+  }
+  .history-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    color: #00ffaa55;
+    min-width: 18px;
+  }
+  .history-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #90b0c0;
+  }
+
   .confetti-canvas {
     position: fixed;
     top: 0; left: 0;
@@ -379,6 +507,26 @@
       <div class="chart-name-flash" id="nameFlash">&mdash;</div>
     </div>
     <canvas id="chart"></canvas>
+  </div>
+
+  <div class="shuffle-section">
+    <div class="shuffle-panel">
+      <div class="panel-header">
+        <div class="icon" style="border-color:rgba(168,85,247,0.25);background:rgba(168,85,247,0.08);">&#9858;</div>
+        <div class="title" style="color:#a855f799;">Shuffle</div>
+      </div>
+      <div class="shuffle-display">
+        <div class="shuffle-name" id="shuffleName">-</div>
+      </div>
+      <button class="shuffle-btn" id="shuffleBtn" onclick="startShuffle()">Shuffle</button>
+    </div>
+    <div class="shuffle-panel shuffle-history">
+      <div class="panel-header">
+        <div class="icon" style="border-color:rgba(168,85,247,0.25);background:rgba(168,85,247,0.08);">&#9776;</div>
+        <div class="title" style="color:#a855f799;">Ajalugu</div>
+      </div>
+      <ul class="history-list" id="historyList"></ul>
+    </div>
   </div>
 </div>
 
@@ -820,6 +968,72 @@ function launchConfetti() {
     else { ctx.clearRect(0, 0, c.width, c.height); confettiAnimFrame = null; }
   }
   confettiAnimFrame = requestAnimationFrame(animate);
+}
+
+// ─── SHUFFLE RANDOMIZER ─────────────────────────────────
+const shuffleNameEl = document.getElementById('shuffleName');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const historyList = document.getElementById('historyList');
+let shuffling = false;
+let shuffleHistory = [];
+
+function startShuffle() {
+  names = getNames();
+  if (names.length < 2) { alert('Lisa vahemalt 2 nime!'); return; }
+  if (shuffling) return;
+  shuffling = true;
+  shuffleBtn.disabled = true;
+
+  // Pick winner
+  const winnerIndex = Math.floor(cryptoRand() * names.length);
+  const winnerName = names[winnerIndex];
+
+  // Shuffle animation: cycle through random names, slowing down
+  shuffleNameEl.className = 'shuffle-name rolling';
+  let tick = 0;
+  const totalTicks = 25 + Math.floor(cryptoRand() * 10);
+  let delay = 40;
+
+  function nextTick() {
+    if (tick >= totalTicks) {
+      // Land on winner
+      shuffleNameEl.textContent = winnerName;
+      shuffleNameEl.className = 'shuffle-name winner';
+      shuffling = false;
+      shuffleBtn.disabled = false;
+
+      // Add to history
+      shuffleHistory.unshift(winnerName);
+      if (shuffleHistory.length > 20) shuffleHistory.pop();
+      renderHistory();
+      return;
+    }
+
+    // Show random name
+    const randName = names[Math.floor(cryptoRand() * names.length)];
+    shuffleNameEl.textContent = randName;
+    tick++;
+
+    // Ease out: gets slower toward the end
+    const progress = tick / totalTicks;
+    if (progress < 0.5) {
+      delay = 40 + progress * 40;
+    } else if (progress < 0.8) {
+      delay = 80 + (progress - 0.5) * 300;
+    } else {
+      delay = 180 + (progress - 0.8) * 600;
+    }
+
+    setTimeout(nextTick, delay);
+  }
+
+  nextTick();
+}
+
+function renderHistory() {
+  historyList.innerHTML = shuffleHistory.map((name, i) =>
+    `<li class="history-item"><span class="history-num">#${i + 1}</span><span class="history-name">${name.replace(/</g, '&lt;')}</span></li>`
+  ).join('');
 }
 </script>
 </body>
