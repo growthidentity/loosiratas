@@ -532,44 +532,72 @@ function drawWheel(highlightIndex = -1) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Text — drawn along the radius like a spoke
+    // Text — letter-spaced along the radius, flipped on left half
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(midAngle);
 
-    const innerR = 38;
-    const outerR = r - 12;
+    const innerR = 40;
+    const outerR = r - 14;
     const availableLen = outerR - innerR;
 
-    // Arc height at the text midpoint determines max font size
+    // Arc height at text midpoint determines max font size
     const midR = (innerR + outerR) / 2;
-    const arcHeight = midR * sliceAngle * 0.75;
-    const fontSize = Math.max(10, Math.min(20, arcHeight, availableLen / 8));
+    const arcHeight = midR * sliceAngle * 0.7;
+    const fontSize = Math.max(10, Math.min(18, arcHeight));
 
     ctx.font = `700 ${fontSize}px Rajdhani, sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
 
-    // Truncate name to fit the available radial length
+    // Truncate if needed
     let label = name;
-    let tw = ctx.measureText(label).width;
-    if (tw > availableLen) {
-      while (label.length > 1 && ctx.measureText(label + '..').width > availableLen) {
+    const naturalWidth = ctx.measureText(label).width;
+    if (naturalWidth > availableLen * 0.95) {
+      while (label.length > 1 && ctx.measureText(label + '..').width > availableLen * 0.95) {
         label = label.slice(0, -1);
       }
       label += '..';
-      tw = ctx.measureText(label).width;
     }
 
-    // Center the text along the radial span
-    const textStart = innerR + (availableLen - tw) / 2;
+    // Flip text on left half so it always reads from center outward
+    const normAngle = ((midAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const onLeftSide = normAngle > Math.PI / 2 && normAngle < Math.PI * 1.5;
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillText(label, textStart + 1, 1);
-    // Main text
-    ctx.fillStyle = '#fff';
-    ctx.fillText(label, textStart, 0);
+    const chars = label.split('');
+    const charWidths = chars.map(ch => ctx.measureText(ch).width);
+    const totalCharWidth = charWidths.reduce((a, b) => a + b, 0);
+
+    // Distribute spacing evenly across available length
+    const extraSpace = availableLen - totalCharWidth;
+    const gap = chars.length > 1 ? extraSpace / (chars.length - 1) : 0;
+    const clampedGap = Math.min(gap, fontSize * 1.2); // don't space too much
+    const totalSpread = totalCharWidth + clampedGap * (chars.length - 1);
+    const startOffset = innerR + (availableLen - totalSpread) / 2;
+
+    if (onLeftSide) {
+      // Rotate 180 so text reads outward from center
+      ctx.rotate(midAngle + Math.PI);
+      let pos = -outerR + (availableLen - totalSpread) / 2;
+      chars.forEach((ch, ci) => {
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillText(ch, pos + 1, 1);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(ch, pos, 0);
+        pos += charWidths[ci] + clampedGap;
+      });
+    } else {
+      ctx.rotate(midAngle);
+      let pos = startOffset;
+      chars.forEach((ch, ci) => {
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillText(ch, pos + 1, 1);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(ch, pos, 0);
+        pos += charWidths[ci] + clampedGap;
+      });
+    }
     ctx.restore();
   });
 
