@@ -543,9 +543,9 @@ function drawChart(candles, highlightLast) {
     cCtx.lineTo(x, toY(c.low));
     cCtx.stroke();
 
-    // Body
+    // Body — fully opaque so MA line doesn't bleed through
     const bw = isWinner ? candleW * 1.8 : candleW;
-    cCtx.fillStyle = bullish ? color + (isWinner ? 'ff' : 'cc') : color + '88';
+    cCtx.fillStyle = bullish ? color : (isWinner ? color : '#cc3355');
     cCtx.fillRect(x - bw / 2, bodyTop, bw, bodyH);
 
     // Winner glow
