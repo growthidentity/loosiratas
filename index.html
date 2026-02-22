@@ -425,6 +425,14 @@
         <div class="stat-box"><span class="lbl">Osalejaid</span><span class="val" id="nameCount">0</span></div>
         <div class="stat-box"><span class="lbl">V&otilde;idu %</span><span class="val" id="winChance">-</span></div>
         <div class="stat-box"><span class="lbl">Staatus</span><span class="val" id="statusText" style="color:#506070;">Ootel</span></div>
+        <div class="stat-box" style="margin-top:0.3rem;">
+          <span class="lbl">Auhind</span>
+          <input id="prizeInput" type="text" placeholder="nt. 100€" style="
+            font-family:'Orbitron',monospace;font-size:0.7rem;font-weight:700;color:#00ffaa;
+            background:rgba(3,5,15,0.9);border:1px solid rgba(0,255,170,0.08);border-radius:5px;
+            padding:0.2rem 0.4rem;width:100px;outline:none;letter-spacing:1px;
+          ">
+        </div>
       </div>
       <button class="spin-btn" id="spinBtn" onclick="startRace()">Alusta</button>
     </div>
@@ -831,6 +839,7 @@ function startRace() {
   racing = true;
   spinBtn.disabled = true;
   namesEl.disabled = true;
+  document.getElementById('prizeInput').disabled = true;
   document.querySelectorAll('.tf-btn').forEach(b => b.disabled = true);
   statusText.textContent = 'Trading...';
   statusText.style.color = '#00d4ff';
@@ -1023,6 +1032,7 @@ function finishRace(winnerName, allCandles) {
   racing = false;
   spinBtn.disabled = false;
   namesEl.disabled = false;
+  document.getElementById('prizeInput').disabled = false;
   document.querySelectorAll('.tf-btn').forEach(b => b.disabled = false);
   if (nameFlashTimer) { clearInterval(nameFlashTimer); nameFlashTimer = null; }
   statusText.textContent = 'PUMP!';
@@ -1033,14 +1043,10 @@ function finishRace(winnerName, allCandles) {
   nameFlash.textContent = winnerName;
   nameFlash.className = 'chart-name-flash green';
 
-  // Calculate pump %
-  const lastCandle = allCandles[allCandles.length - 1];
-  const prevCandle = allCandles[allCandles.length - 2];
-  const pumpPct = Math.min(9999, Math.abs((lastCandle.close - prevCandle.close) / prevCandle.close * 100)).toFixed(1);
-
   // Show winner overlay
+  const prize = document.getElementById('prizeInput').value.trim();
   document.getElementById('winnerName').textContent = winnerName;
-  document.getElementById('winnerPct').textContent = '+' + pumpPct + '%';
+  document.getElementById('winnerPct').textContent = prize || 'PUMP!';
   overlayShowTimer = setTimeout(() => {
     document.getElementById('winnerOverlay').classList.add('active');
     launchConfetti();
